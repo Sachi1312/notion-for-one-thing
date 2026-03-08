@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Notes App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f17;
+      color: #e4e2f0;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #a78bfa, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: #5a566e;
+      margin-bottom: 32px;
+      font-size: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 140px;
+      background: #1c1c2e;
+      border: 1px solid #2a2a40;
+      border-radius: 12px;
+      padding: 16px;
+      color: #e4e2f0;
+      font-size: 15px;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus { border-color: #7c3aed; }
+
+    button {
+      margin-top: 12px;
+      width: 100%;
+      padding: 14px;
+      background: #7c3aed;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover   { background: #6d28d9; }
+    button:disabled { background: #3d2a6e; cursor: not-allowed; }
+
+    .status {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #7c3aed;
+      min-height: 20px;
+      text-align: center;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #2a2a40;
+      margin: 32px 0;
+    }
+
+    .notes-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #8e8aa8;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+    }
+
+    .note-card {
+      background: #1c1c2e;
+      border: 1px solid #2a2a40;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 12px;
+      transition: border-color 0.2s;
+    }
+
+    .note-card:hover { border-color: #7c3aed; }
+
+    .note-content {
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 12px;
+      color: #e4e2f0;
+    }
+
+    .note-summary {
+      font-size: 13px;
+      color: #8e8aa8;
+      margin-bottom: 10px;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    .note-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid rgba(124, 58, 237, 0.3);
+      color: #a78bfa;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+
+    .note-date {
+      font-size: 11px;
+      color: #3d3a55;
+      margin-top: 10px;
+    }
+
+    .empty {
+      text-align: center;
+      color: #3d3a55;
+      font-size: 14px;
+      padding: 40px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>My Notes ✦</h1>
+    <p class="subtitle">Write a note — AI will tag and summarise it automatically</p>
+
+    <!-- Input area -->
+    <textarea id="noteInput" placeholder="Write anything — ideas, thoughts, things to remember..."></textarea>
+    <button id="saveBtn" onclick="saveNote()">Save Note</button>
+    <div class="status" id="status"></div>
+
+    <hr class="divider">
+
+    <div class="notes-title">All Notes</div>
+    <div id="notesList"></div>
+  </div>
+
+  <script>
+    // Load all notes when the page first opens
+    window.onload = loadNotes;
+
+    async function saveNote() {
+      const input   = document.getElementById("noteInput");
+      const btn     = document.getElementById("saveBtn");
+      const status  = document.getElementById("status");
+      const content = input.value.trim();
+
+      if (!content) {
+        status.textContent = "Please write something first!";
+        return;
+      }
+
+      // Disable button and show loading
+      btn.disabled      = true;
+      btn.textContent   = "Saving...";
+      status.textContent = "AI is thinking...";
+
+      try {
+        const response = await fetch("/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: content })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          status.textContent = "Note saved!";
+          input.value        = "";
+          loadNotes();
+        }
+      } catch (error) {
+        status.textContent = "Something went wrong. Try again.";
+      }
+
+      btn.disabled    = false;
+      btn.textContent = "Save Note";
+    }
+
+    async function loadNotes() {
+      const response = await fetch("/notes");
+      const notes    = await response.json();
+      const list     = document.getElementById("notesList");
+
+      if (notes.length === 0) {
+        list.innerHTML = '<div class="empty">No notes yet — write your first one above!</div>';
+        return;
+      }
+
+      list.innerHTML = notes.map(note => `
+        <div class="note-card">
+          <div class="note-content">${note.content}</div>
+          <div class="note-summary">📝 ${note.summary}</div>
+          <div class="note-tags">
+            ${note.tags.split(",").map(tag =>
+              `<span class="tag">${tag.trim()}</span>`
+            ).join("")}
+          </div>
+          <div class="note-date">${new Date(note.created_at).toLocaleString()}</div>
+        </div>
+      `).join("");
+    }
+  </script>
+</body>
+</html>
